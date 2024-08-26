@@ -1,0 +1,496 @@
+import { Button, VerticalBox, ScrollView, LineEdit, TextEdit, ComboBox } from "std-widgets.slint";
+
+
+struct Directory
+{
+    name: string,
+    path: string,
+}
+
+
+global Symbols
+{
+    out property <string> BACK: "←";
+    out property <string> FORWARD: "→";
+    out property <string> REFRESH: "↻";
+    out property <string> SEARCH: "🔎︎";
+    out property <string> NEW: "+";
+    out property <string> DELETE: "-";
+    out property <string> RENAME: "📝";
+    out property <string> SAVE: "💾";
+}
+
+
+export component AppWindow inherits Window
+{
+    title: "File Explorer";
+    background: #313e50;
+    preferred-width: 1100px;
+    preferred-height: 650px;
+
+    in-out property <Directory> dir;
+    in-out property <[Directory]> parents;
+    in-out property <[Directory]> children;
+    in-out property <string> file;
+
+    callback open_dir(string);
+    callback refresh(string);
+    callback back();
+    callback forward();
+    callback search(string, string);
+
+    callback new_file(string, bool);
+    callback delete_file(string);
+    callback rename_file(string, string);
+    callback save_file(string);
+
+    pure callback make_children_equal_FUCKING_ARRAY([Directory]) -> [string];
+
+    function reset_scrollviews()
+    {
+        top-scroll.viewport-x = 0;
+        top-scroll.viewport-y = 0;
+
+        left-scroll.viewport-x = 0;
+        left-scroll.viewport-y = 0;
+
+        mid-scroll.viewport-x = 0;
+        mid-scroll.viewport-y = 0;
+
+        right-scroll.viewport-x = 0;
+        right-scroll.viewport-y = 0;
+    }
+
+    GridLayout 
+    {
+        Row
+        {
+            HorizontalLayout 
+            {
+                padding: 10px;
+                spacing: 10px;
+                alignment: start;
+                
+                Button 
+                {
+                    text: Symbols.BACK;
+                    width: 50px;
+                    height: 50px;
+                    clicked => { back(); reset_scrollviews(); }
+                }
+                Button 
+                {
+                    text: Symbols.FORWARD;
+                    width: 50px;
+                    height: 50px;
+                    clicked => { forward(); reset_scrollviews(); }
+                }
+                Button 
+                {
+                    text: Symbols.REFRESH;
+                    width: 50px;
+                    height: 50px;
+                    clicked => { refresh(dir.path); reset_scrollviews(); file-content.text = file; }
+                }
+                top_scroll := ScrollView
+                {
+                    width: root.width - 470px;
+                    viewport-height: 50px;
+                    viewport-y: -5px;
+
+                    VerticalLayout
+                    {
+                        alignment: center;
+
+                        HorizontalLayout
+                        {
+                            alignment: start;
+                            padding: 10px;
+
+                            for d in parents: Button
+                            {
+                                text: d.name;
+                                height: 40px;
+                                clicked => { open_dir(d.path); reset_scrollviews(); }
+                            }
+                            Button
+                            {
+                                text: dir.name;
+                                height: 40px;
+                            }
+                        }
+                    }
+                }
+                search_input := LineEdit
+                {
+                    font-size: 14px;
+                    width: 200px;
+                    height: 50px;
+                    placeholder-text: "Enter query here";
+                    accepted => { search_input.clear-focus(); search(search_input.text, dir.path); search-input.text = ""; reset_scrollviews(); }
+                }
+                Button
+                {
+                    text: Symbols.SEARCH;
+                    width: 50px;
+                    height: 50px;
+                    clicked => { search_input.clear-focus(); search(search_input.text, dir.path); search-input.text = ""; reset_scrollviews(); }
+                }
+            }
+        }
+        Row
+        {
+            HorizontalLayout 
+            {
+                alignment: center;
+                spacing: 20px;
+                padding: 20px;
+
+                left_scroll := ScrollView
+                {
+                    width: 100px;
+                    viewport-width: 100px;
+
+                    VerticalLayout
+                    {
+                        alignment: center;
+
+                        for d in parents: Button
+                        {
+                            text: d.name;
+                            height: 30px;
+                            clicked => { open_dir(d.path); reset_scrollviews(); }
+                        }
+                        Button
+                        {
+                            text: dir.name;
+                            height: 30px;
+                        }
+                    }
+                }
+                mid_scroll := ScrollView
+                {
+                    width: root.width - 230px;
+
+                    VerticalLayout
+                    {
+                        alignment: center;
+                        padding: 10px;
+
+                        for child in children: Button
+                        {
+                            text: child.name;
+                            width: 100%;
+                            height: 30px;
+                            clicked => { open_dir(child.path); reset_scrollviews(); }
+                        }
+                        file_content := TextEdit
+                        {
+                            visible: file != "" ? true: false;
+                            text: file;
+                            font-size: 12px;
+                            width: 90%;
+                            height: 90%;
+                        }
+                    }
+                }
+                right_scroll := ScrollView
+                {
+                    width: 50px;
+
+                    VerticalLayout
+                    {
+                        alignment: center;
+                        spacing: 10px;
+
+                        Button
+                        {
+                            enabled: file == "" ? true : false;
+                            text: Symbols.NEW;
+                            width: 50px;
+                            height: 50px;
+                            clicked => { new-popup.show() }
+                        }
+                        Button
+                        {
+                            enabled: file == "" ? true : false;
+                            text: Symbols.DELETE;
+                            width: 50px;
+                            height: 50px;
+                            clicked => { delete-popup.show() }
+                        }
+                        Button
+                        {
+                            enabled: file == "" ? true : false;
+                            text: Symbols.RENAME;
+                            width: 50px;
+                            height: 50px;
+                            clicked => { rename-popup.show() }
+                        }
+                        Button
+                        {
+                            enabled: file != "" ? true : false;
+                            text: Symbols.SAVE;
+                            width: 50px;
+                            height: 50px;
+                            clicked => { file = file-content.text; save_file(dir.path); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    new_popup := PopupWindow
+    {
+        property <bool> file_clicked: true;
+
+        function new_do()
+        {
+            new_file(new_input.text, file_clicked);
+            refresh(dir.path);
+            reset_scrollviews();
+            delete-popup.close();
+        }
+
+        Rectangle
+        {
+            width: root.width;
+            height: root.height;
+            background: #313e50;
+
+            Button
+            {
+                text: "X";
+                x: root.width - 50px;
+                y: 0;
+                width: 50px;
+                height: 50px;
+                clicked => { new-popup.close() }
+            }
+
+            new_file_button := Button
+            {
+                x: (root.width / 2) - 100px;
+                y: (root.height / 2) - 100px;
+                width: 90px;
+                height: 50px;
+                text: "File";
+                enabled: !file_clicked;
+                clicked => {
+                    file_clicked = true;
+                }
+            }
+
+            new_dir_button := Button
+            {
+                x: (root.width / 2) + 10px;
+                y: (root.height / 2) - 100px;
+                width: 90px;
+                height: 50px;
+                text: "Directory";
+                enabled: file_clicked;
+                clicked => {
+                    file_clicked = false;
+                }
+            }
+
+            new_input := LineEdit
+            {
+                x: (root.width / 2) - 200px - 30px;
+                y: (root.height / 2) - 25px;
+                font-size: 14px;
+                width: 400px;
+                height: 50px;
+                placeholder-text: "Enter new file/directory name here";
+                accepted => {
+                    if (self.text != "")
+                    {
+                        new_do();
+                    }
+                }
+            }
+
+            Button
+            {
+                text: Symbols.NEW;
+                x: (root.width / 2) + 180px;
+                y: (root.height / 2) - 25px;
+                width: 50px;
+                height: 50px;
+                clicked => {
+                    if (new-input.text != "")
+                    {
+                        new_do();
+                    }
+                }
+            }
+        }
+        x: root.x;
+        y: root.y;
+        width: root.width;
+        height: root.height;
+        close-on-click: false;
+    }
+
+    delete_popup := PopupWindow
+    {
+        property <int> delete_clicker_id: 0;
+        property <Directory> delete_clicker_path: children[0];
+
+        function delete_do()
+        {
+            delete_file(delete_clicker_path.path);
+            refresh(dir.path);
+            reset_scrollviews();
+            delete-popup.close();
+        }
+
+        Rectangle
+        {
+            width: root.width;
+            height: root.height;
+            background: #313e50;
+
+            Button
+            {
+                text: "X";
+                x: root.width - 50px;
+                y: 0;
+                width: 50px;
+                height: 50px;
+                clicked => { delete-popup.close() }
+            }
+
+            ScrollView
+            {
+                height: 25%;
+                width: 50%;
+                x: root.width / 2 - self.width / 2;
+                y: root.height / 2 - self.height / 2 - 150px;
+
+                VerticalLayout
+                {
+                    alignment: center;
+                    padding: 10px;
+
+                    for child[i] in children: Button
+                    {
+                        property <int> self_id: i;
+                        text: child.name;
+                        width: 100%;
+                        height: 30px;
+                        clicked => { delete_clicker_id = self_id; delete_clicker_path = child; }
+                        enabled: self_id == delete_clicker_id ? false : true;
+                    }
+                }
+            }
+
+            Button
+            {
+                text: "Confirm Delete";
+                x: (root.width / 2) - 100px;
+                y: (root.height / 2) - 25px;
+                width: 200px;
+                height: 50px;
+                clicked => { delete_do() }
+            }
+        }
+        x: root.x;
+        y: root.y;
+        width: root.width;
+        height: root.height;
+        close-on-click: false;
+    }
+
+    rename_popup := PopupWindow
+    {
+        property <int> rename_clicker_id: 0;
+        property <Directory> rename_clicker_path: children[0];
+
+        function rename_do()
+        {
+            rename_file(rename_clicker_path.path, rename-input.text);
+            refresh(dir.path);
+            reset_scrollviews();
+            rename-popup.close();
+        }
+
+        Rectangle
+        {
+            width: root.width;
+            height: root.height;
+            background: #313e50;
+
+            Button
+            {
+                text: "X";
+                x: root.width - 50px;
+                y: 0;
+                width: 50px;
+                height: 50px;
+                clicked => { rename-popup.close() }
+            }
+
+            ScrollView
+            {
+                height: 25%;
+                width: 50%;
+                x: root.width / 2 - self.width / 2;
+                y: root.height / 2 - self.height / 2 - 150px;
+
+                VerticalLayout
+                {
+                    alignment: center;
+                    padding: 10px;
+
+                    for child[i] in children: Button
+                    {
+                        property <int> self_id: i;
+                        text: child.name;
+                        width: 100%;
+                        height: 30px;
+                        clicked => { rename_clicker_id = self_id; rename_clicker_path = child; }
+                        enabled: self_id == rename_clicker_id ? false : true;
+                    }
+                }
+            }
+
+            rename_input := LineEdit
+            {
+                x: (root.width / 2) - 200px - 30px;
+                y: (root.height / 2) - 25px;
+                font-size: 14px;
+                width: 400px;
+                height: 50px;
+                placeholder-text: "Enter new name here";
+                accepted => {
+                    if (self.text != "")
+                    {
+                        rename_do();
+                    }
+                }
+            }
+
+            Button
+            {
+                text: Symbols.RENAME;
+                x: (root.width / 2) + 180px;
+                y: (root.height / 2) - 25px;
+                width: 50px;
+                height: 50px;
+                clicked => {
+                    if (rename-input.text != "")
+                    {
+                        rename_do();
+                    }
+                }
+            }
+        }
+        x: root.x;
+        y: root.y;
+        width: root.width;
+        height: root.height;
+        close-on-click: false;
+    }
+}
